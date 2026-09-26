@@ -2,8 +2,6 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionListener;
 import java.util.Random;
-import java.util.concurrent.TimeUnit;
-
 
 public class Buscaminas extends JFrame {
     private static final int FILAS = 10;
@@ -14,53 +12,101 @@ public class Buscaminas extends JFrame {
 
     static final int[][] tablero = new int[FILAS][COLUMNAS];
 
-    //Tablero
+    // Control de estado de la partida
+    private int casillasDestapadas = 0;
+    private boolean partidaTerminada = false;
+
+    // Componentes de los paneles
+    private JLabel lblMinas;
+    private JLabel lblEstado;
+    private JButton btnReiniciar;
+
     public Buscaminas() {
         setTitle("Buscaminas");
         setSize(600, 700);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLocationRelativeTo(null);
 
-        setLayout(new GridBagLayout());
+        setLayout(new BorderLayout());
+
+        // Tres métodos de paneles
+        panelSuperior();
+        panelCentral();
+        panelInferior();
+
+        colocarMinas();
+        calcularMinasCercanas();
+
+        // Comprobación por consola
+        for(int i = 0; i < FILAS; i++){
+            for(int j = 0; j < COLUMNAS; j++){
+                System.out.print(tablero[i][j] + "\t");
+            }
+            System.out.println();
+        }
+    }
+
+    private void panelSuperior() {
+        JPanel panelSuperior = new JPanel(new GridLayout(2, 1));
+        panelSuperior.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+
+        JLabel lblTitulo = new JLabel("BUSCAMINAS", SwingConstants.CENTER);
+        lblTitulo.setFont(new Font("Arial", Font.BOLD, 18));
+
+        lblMinas = new JLabel("Minas en el tablero: " + TOTAL_MINAS, SwingConstants.CENTER);
+        lblMinas.setFont(new Font("Arial", Font.PLAIN, 14));
+
+        panelSuperior.add(lblTitulo);
+        panelSuperior.add(lblMinas);
+
+        add(panelSuperior, BorderLayout.NORTH);
+    }
+
+    private void panelCentral() {
+        JPanel panelCentral = new JPanel(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.BOTH;
         gbc.weightx = 1.0;
         gbc.weighty = 1.0;
         gbc.insets = new Insets(1, 1, 1, 1);
 
-        //Función lambda para obtener el botón exacto que fue pulsado
         ActionListener accionPulsar = e -> {
+            if (partidaTerminada) return; // Si terminó la partida, no responde a clics
             Boton btn = (Boton) e.getSource();
             pulsarBoton(btn.getFila(), btn.getColumna());
         };
 
-        for(int i = 0; i<FILAS; i++){
-            for(int j = 0; j<COLUMNAS; j++){
+        for(int i = 0; i < FILAS; i++){
+            for(int j = 0; j < COLUMNAS; j++){
                 Boton btn = new Boton(i, j);
 
-                gbc.gridx=j;
-                gbc.gridy=i;
-                botones[i][j]= btn;
+                gbc.gridx = j;
+                gbc.gridy = i;
+                botones[i][j] = btn;
 
-                //Le decimos a cada botón que debe hacer si es pulsado
                 btn.addActionListener(accionPulsar);
-
-                add(btn, gbc);
-
+                panelCentral.add(btn, gbc);
             }
         }
-        colocarMinas();
-        calcularMinasCercanas();
 
-        for(int i = 0; i<FILAS; i++){
-
-            for(int j = 0; j<COLUMNAS; j++){
-                System.out.print(tablero[i][j]);
-            }
-            System.out.println();
-        }
+        add(panelCentral, BorderLayout.CENTER);
     }
 
+    private void panelInferior() {
+        JPanel panelInferior = new JPanel(new FlowLayout(FlowLayout.CENTER, 20, 10));
+
+        btnReiniciar = new JButton("Nueva partida");
+        btnReiniciar.setFocusable(false);
+        btnReiniciar.addActionListener(e -> finPartida());
+
+        lblEstado = new JLabel("Partida en curso");
+        lblEstado.setFont(new Font("Arial", Font.BOLD, 13));
+
+        panelInferior.add(btnReiniciar);
+        panelInferior.add(lblEstado);
+
+        add(panelInferior, BorderLayout.SOUTH);
+    }
 
     public void pulsarBoton(int fila, int columna){
         if (fila < 0 || fila >= FILAS || columna < 0 || columna >= COLUMNAS) {
@@ -75,36 +121,53 @@ public class Buscaminas extends JFrame {
 
         btn.setEnabled(false);
 
-        if (valor == -1){
-            btn.setText("💣");
-            btn.setBackground(Color.red);
-            // Mostramos una ventana emergente de aviso
-            JOptionPane.showMessageDialog(this, "¡BOOM! Has pisado una mina. Reiniciando...");
-            revelarMinas();
-            // Llamamos al reinicio
-            finPartida();
-            return; // Salimos del método para no ejecutar nada más
+        // Caso derrota
+        if (valor == MINA){
+            partidaTerminada = true;
+            lblEstado.setText("¡Has perdido!");
+            revelarMinas(); // Se pintan todas las bombas antes del diálogo
+            JOptionPane.showMessageDialog(this, "¡BOOM! Has pisado una mina.");
+            return;
         }
+
+        // Casilla segura descubierta
+        casillasDestapadas++;
+
         if (valor > 0) {
             btn.setText(String.valueOf(valor));
         } else {
-            btn.setText(""); // Si es 0, la dejamos sin texto
+            btn.setText(""); // Si es 0
             for (int df = -1; df <= 1; df++) {
                 for (int dc = -1; dc <= 1; dc++) {
-                    if (df != 0 || dc != 0) { // Evita llamarse a sí misma de nuevo
+                    if (df != 0 || dc != 0) {
                         pulsarBoton(fila + df, columna + dc);
                     }
                 }
             }
         }
+
+        // Caso victoria: 100 - 15 = 85 casillas
+        if (casillasDestapadas == (FILAS * COLUMNAS) - TOTAL_MINAS && !partidaTerminada) {
+            partidaTerminada = true;
+            lblEstado.setText("¡Has ganado!");
+            revelarMinas();
+            JOptionPane.showMessageDialog(this, "¡Enhorabuena! Has despejado el tablero.");
+        }
     }
+
     public void finPartida(){
+        partidaTerminada = false;
+        casillasDestapadas = 0;
+        if (lblEstado != null) {
+            lblEstado.setText("Partida en curso");
+        }
+
         for (int i = 0; i < FILAS; i++) {
             for (int j = 0; j < COLUMNAS; j++) {
-                tablero[i][j] = 0;           // Vuelve a estar vacía en memoria
-                botones[i][j].setText("");    // Borramos números o bombas
-                botones[i][j].setEnabled(true); // Permitimos clics de nuevo
-                botones[i][j].setBackground(null); // Restauramos el color gris por defecto
+                tablero[i][j] = 0;
+                botones[i][j].setText("");
+                botones[i][j].setEnabled(true);
+                botones[i][j].setBackground(null);
             }
         }
         colocarMinas();
@@ -112,8 +175,8 @@ public class Buscaminas extends JFrame {
     }
 
     public void revelarMinas(){
-        for(int i = 0; i<FILAS; i++){
-            for(int j = 0; j<COLUMNAS; j++){
+        for(int i = 0; i < FILAS; i++){
+            for(int j = 0; j < COLUMNAS; j++){
                 if(tablero[i][j] == MINA){
                     botones[i][j].setText("💣");
                     botones[i][j].setBackground(Color.red);
@@ -121,15 +184,16 @@ public class Buscaminas extends JFrame {
             }
         }
     }
+
     public void colocarMinas(){
         Random rand = new Random();
         int colocadas = 0;
 
-        while(colocadas<TOTAL_MINAS){
+        while(colocadas < TOTAL_MINAS){
             int columna = rand.nextInt(COLUMNAS);
             int fila = rand.nextInt(FILAS);
 
-            if(tablero[fila][columna]!=MINA) {
+            if(tablero[fila][columna] != MINA) {
                 tablero[fila][columna] = MINA;
                 colocadas++;
             }
@@ -137,14 +201,14 @@ public class Buscaminas extends JFrame {
     }
 
     public void calcularMinasCercanas(){
-        for(int i = 0; i<FILAS;i++){
-            for(int j = 0; j<COLUMNAS;j++){
-                if(tablero[i][j]==MINA){
-                    for(int df = -1; df<=1; df++){
-                        for(int dc = -1; dc<=1; dc++){
+        for(int i = 0; i < FILAS; i++){
+            for(int j = 0; j < COLUMNAS; j++){
+                if(tablero[i][j] == MINA){
+                    for(int df = -1; df <= 1; df++){
+                        for(int dc = -1; dc <= 1; dc++){
                             int vecinoFila = i + df;
                             int vecinoColumna = j + dc;
-                            if((vecinoFila >=0 && vecinoFila < FILAS) && (vecinoColumna >=0 && vecinoColumna < COLUMNAS)){
+                            if((vecinoFila >= 0 && vecinoFila < FILAS) && (vecinoColumna >= 0 && vecinoColumna < COLUMNAS)){
                                 tablero[vecinoFila][vecinoColumna] =
                                         tablero[vecinoFila][vecinoColumna] == MINA ?
                                                 MINA : ++tablero[vecinoFila][vecinoColumna];
@@ -160,7 +224,5 @@ public class Buscaminas extends JFrame {
         SwingUtilities.invokeLater(() -> {
             new Buscaminas().setVisible(true);
         });
-
     }
-
 }
