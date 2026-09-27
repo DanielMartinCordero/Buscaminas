@@ -1,8 +1,9 @@
 import javax.swing.*;
 
 public class Boton extends JButton {
-    private int fila = 0;
-    private int columna = 0;
+    //Una vez establecidas las coordenadas, nunca cambia
+    private final int fila;
+    private final int columna;
 
     public Boton(int fila, int columna){
         this.fila = fila;

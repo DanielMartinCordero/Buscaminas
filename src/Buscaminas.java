@@ -6,11 +6,14 @@ import java.util.Random;
 public class Buscaminas extends JFrame {
     private static final int FILAS = 10;
     static final int COLUMNAS = 10;
-    private final Boton[][] botones = new Boton[FILAS][COLUMNAS];
     static final int TOTAL_MINAS = 15;
     static final int MINA = -1;
 
+    //La lógica: -1 si es mina, 0 si es una casilla vacía o 1-8 dependiendo las minas cercanas
     static final int[][] tablero = new int[FILAS][COLUMNAS];
+
+    //Guarda cada objeto botón para poder acceder a sus coordenadas
+    private final Boton[][] botones = new Boton[FILAS][COLUMNAS];
 
     // Control de estado de la partida
     private int casillasDestapadas = 0;
@@ -151,7 +154,7 @@ public class Buscaminas extends JFrame {
             partidaTerminada = true;
             lblEstado.setText("¡Has ganado!");
             revelarMinas();
-            JOptionPane.showMessageDialog(this, "¡Enhorabuena! Has despejado el tablero.");
+            JOptionPane.showMessageDialog(this, "¡Enhorabuena! Has ganado.");
         }
     }
 
